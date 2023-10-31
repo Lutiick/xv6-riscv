@@ -683,7 +683,8 @@ procdump(void)
 }
 
 
-void dump(void) {
+void
+dump(void) {
   struct proc *p = myproc();
 
   uint64 *reg_start = &(p->trapframe->a6);
@@ -691,4 +692,54 @@ void dump(void) {
   for (uint64 i = 2; i < 12; i++) {
     printf("s%d: %d\n", i, *(reg_start + i) << 32 >> 32);
   }
+}
+
+uint64
+dump2(int pid, int register_num, uint64 return_addr) {
+  if (register_num < 2 || register_num > 11)
+    return -3;
+
+  
+  struct proc *p = myproc();
+
+  int found_flag = 0;
+  struct proc *found_proc = 0;
+
+  acquire(&wait_lock);
+
+  for (int i = 0; i < NPROC; i++) {
+    acquire(&(proc[i].lock));
+
+    if (proc[i].pid == pid) {
+      found_proc = &proc[i];
+      found_flag = 1;
+      break;
+    }
+
+    release(&(proc[i].lock));
+  }
+
+  if (!found_flag) {
+    release(&wait_lock);
+    return -2;
+  }
+
+  if (pid != p->pid && found_proc->parent->pid != p->pid) {
+    release(&(found_proc->lock));
+    release(&wait_lock);
+    return -1;
+  }
+
+  uint64 reg = *(&found_proc->trapframe->s2 + register_num - 2);
+  release(&(found_proc->lock));
+
+  if (copyout(p->pagetable, return_addr, (char *) &reg, 8) != 0) {
+    
+    release(&wait_lock);
+    return -4;
+  }
+
+  
+  release(&wait_lock);
+  return 0;
 }

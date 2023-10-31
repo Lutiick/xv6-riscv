@@ -1,3 +1,5 @@
+#include "kernel/types.h"
+
 struct stat;
 
 // system calls
@@ -41,3 +43,4 @@ int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
 
 void dump(void);
+uint64 dump2(int pid, int register_num, uint64 *return_value);

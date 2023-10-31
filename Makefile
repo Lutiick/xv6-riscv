@@ -117,6 +117,17 @@ $U/dumptests.asm.o: user/dumptests.S
 $U/dumptests.o: user/dumptests.c
 	$(CC) $(CFLAGS) -o $@ -c $<
 
+$U/_dump2tests: $U/dump2tests.o $U/dump2tests.asm.o $(ULIB)
+	$(LD) $(LDFLAGS) -T $U/user.ld -o $@ $^
+	$(OBJDUMP) -S $@ > $*.asm
+	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
+
+$U/dump2tests.asm.o: user/dump2tests.S
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+$U/dump2tests.o: user/dump2tests.c
+	$(CC) $(CFLAGS) -o $@ -c $<
+
 mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 	gcc -Werror -Wall -I. -o mkfs/mkfs mkfs/mkfs.c
 
@@ -145,6 +156,7 @@ UPROGS=\
 	$U/_zombie\
 	$U/_pingpong\
 	$U/_dumptests\
+	$U/_dump2tests\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
