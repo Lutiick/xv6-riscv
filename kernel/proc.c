@@ -681,3 +681,14 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+void dump(void) {
+  struct proc *p = myproc();
+
+  uint64 *reg_start = &(p->trapframe->a6);
+
+  for (uint64 i = 2; i < 12; i++) {
+    printf("s%d: %d\n", i, *(reg_start + i) << 32 >> 32);
+  }
+}
