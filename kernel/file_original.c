@@ -16,14 +16,8 @@
 struct devsw devsw[NDEV];
 struct {
   struct spinlock lock;
-  //struct file file[NFILE];
+  struct file file[NFILE];
 } ftable;
-
-// maybe?
-// struct file_with_lock {
-//   struct file file;
-//   struct spinlock lock;
-// };
 
 void
 fileinit(void)
@@ -35,23 +29,17 @@ fileinit(void)
 struct file*
 filealloc(void)
 {
-  // acquire(&ftable.lock);
-  // for(f = ftable.file; f < ftable.file + NFILE; f++){
-  //   if(f->ref == 0){
-  //     f->ref = 1;
-  //     release(&ftable.lock);
-  //     return f;
-  //   }
-  // }
-  // release(&ftable.lock);
+  struct file *f;
 
-  struct file *f = (struct file*) bd_malloc(sizeof(struct file));
-
-  if (f != 0) {
-    f->ref = 1;
-    return f;
+  acquire(&ftable.lock);
+  for(f = ftable.file; f < ftable.file + NFILE; f++){
+    if(f->ref == 0){
+      f->ref = 1;
+      release(&ftable.lock);
+      return f;
+    }
   }
-  
+  release(&ftable.lock);
   return 0;
 }
 
@@ -71,7 +59,7 @@ filedup(struct file *f)
 void
 fileclose(struct file *f)
 {
-  // struct file ff;
+  struct file ff;
 
   acquire(&ftable.lock);
   if(f->ref < 1)
@@ -80,20 +68,18 @@ fileclose(struct file *f)
     release(&ftable.lock);
     return;
   }
-  // ff = *f;
-  // f->ref = 0;
-  // f->type = FD_NONE;
+  ff = *f;
+  f->ref = 0;
+  f->type = FD_NONE;
   release(&ftable.lock);
 
-  if(f->type == FD_PIPE){
-    pipeclose(f->pipe, f->writable);
-  } else if(f->type == FD_INODE || f->type == FD_DEVICE){
+  if(ff.type == FD_PIPE){
+    pipeclose(ff.pipe, ff.writable);
+  } else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
     begin_op();
-    iput(f->ip);
+    iput(ff.ip);
     end_op();
   }
-
-  bd_free(f);
 }
 
 // Get metadata about file f.
