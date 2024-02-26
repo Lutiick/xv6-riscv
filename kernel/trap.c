@@ -67,12 +67,33 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if (r_scause() == 15) {
-    // Page fault Copy-on-write
-    uint64 va = PGROUNDDOWN(r_stval());
-    if (is_cow(p->pagetable, va) == 0 || cow_copy(p->pagetable, va) < 0) {
+  } else if (r_scause() == 15 || r_scause() == 13) {
+    // Page fault Copy-on-write or Lazy
+    uint64 va = r_stval();
+    uint64 page_addr = PGROUNDDOWN(va);
+
+    if (p->sz <= va || va < PGROUNDDOWN(p->trapframe->sp) / 10) {
+      printf("usertrap: invalid va\n");
       goto kill_proc;
     }
+
+    pte_t* pte = walk(p->pagetable, page_addr, 0);
+    if (pte == 0 || ((*pte & PTE_V) == 0)) {
+      // Lazy alloc
+      if (lazy_alloc(p->pagetable, page_addr) != 0) {
+        printf("usertrap: lazy alloc failed\n");
+        goto kill_proc;
+      }
+    } else {
+      // Do COW
+      if ((*pte & PTE_COW) != 0) {
+        if (cow_copy(p->pagetable, page_addr) != 0) {
+          printf("usertrap: cow copy failed\n");
+          goto kill_proc;
+        }
+      }
+    }
+
   } else {
 kill_proc:
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
